@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2진수 카드</title>
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --ink: #1f2430;
+    --muted: #6b7080;
+    --card-front: #ffffff;
+    --card-back: #2b3a67;
+    --card-back-line: #3d4f86;
+    --dot: #1f2430;
+    --accent: #e4572e;
+    --ok: #2a9d5c;
+    --panel: #ffffff;
+    --border: #ddd6c8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15171d;
+      --ink: #eceef3;
+      --muted: #9aa0ad;
+      --card-front: #f6f3ec;
+      --panel: #1e2129;
+      --border: #333846;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 16px 40px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.7rem; letter-spacing: -0.02em; }
+  .sub { margin: 0 0 18px; color: var(--muted); font-size: 0.95rem; text-align: center; }
+
+  /* 카드 수 조절 */
+  .count-bar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center;
+    margin-bottom: 22px;
+  }
+  .info {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .info b { color: var(--accent); }
+
+  .board-wrap {
+    width: 100%;
+    max-width: 1200px;
+    overflow-x: auto;
+    padding: 4px 4px 8px;
+  }
+  .board {
+    display: grid;
+    gap: 12px;
+    margin: 0 auto;
+  }
+  .slot { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
+  .slot.enter { animation: pop .35s ease-out; }
+  @keyframes pop { from { opacity: 0; transform: translateX(-16px) scale(.9); } to { opacity: 1; transform: none; } }
+
+  .card {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    perspective: 900px;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+    background: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .card:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 12px; }
+  .inner {
+    position: relative;
+    width: 100%; height: 100%;
+    transition: transform 0.5s cubic-bezier(.4,.2,.2,1);
+    transform-style: preserve-3d;
+  }
+  .card.off .inner { transform: rotateY(180deg); }
+  .face {
+    position: absolute; inset: 0;
+    border-radius: 12px;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+    overflow: hidden;
+  }
+  .front {
+    background: var(--card-front);
+    border: 2px solid #1f2430;
+  }
+  /* 점은 SVG로 그려서 항상 카드 안에 맞게 축소됨 */
+  .front svg {
+    position: absolute;
+    inset: 9%;
+    width: 82%; height: 82%;
+  }
+  .front svg circle { fill: var(--dot); }
+  .back {
+    transform: rotateY(180deg);
+    background:
+      repeating-linear-gradient(45deg, var(--card-back) 0 8px, var(--card-back-line) 8px 16px);
+    border: 2px solid #1a2546;
+  }
+  .value {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .bit {
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 1.6rem;
+    font-weight: 700;
+    width: 2.1rem; height: 2.5rem;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    transition: color .2s;
+  }
+  .bit.one { color: var(--accent); }
+  .bit.zero { color: var(--muted); }
+
+  .result {
+    margin-top: 24px;
+    width: 100%;
+    max-width: 860px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 18px;
+    min-width: 0;
+  }
+  .label { font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; }
+  .big {
+    font-size: 2.4rem; font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    letter-spacing: 0.02em;
+    overflow-wrap: anywhere;
+  }
+  .big small { font-size: 1rem; color: var(--muted); font-weight: 600; margin-left: 4px; }
+  .expr { margin-top: 4px; font-size: 0.95rem; color: var(--muted); min-height: 1.3em; overflow-wrap: anywhere; }
+
+  .controls { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  button.btn {
+    font: inherit;
+    font-size: 0.95rem;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  button.btn:hover:not(:disabled) { border-color: var(--ink); }
+  button.btn:disabled { opacity: .4; cursor: not-allowed; }
+  button.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* 게임 패널 */
+  .game {
+    margin-top: 18px;
+    width: 100%; max-width: 860px;
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    border-radius: 16px;
+    padding: 16px 20px;
+    display: none;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 12px;
+  }
+  .game.on { display: grid; }
+  .game .side { font-size: 0.9rem; color: var(--muted); }
+  .game .side.right { text-align: right; }
+  .game .side b { display: block; font-size: 1.5rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .game .target { text-align: center; }
+  .game .target .label { margin: 0; }
+  .game .target .num {
+    font-size: 3.2rem; font-weight: 800; color: var(--accent);
+    font-variant-numeric: tabular-nums; line-height: 1.1;
+  }
+  .game.correct { border-color: var(--ok); }
+  .game.correct .num { color: var(--ok); }
+  .progress { display: flex; gap: 6px; margin-top: 6px; }
+  .progress span { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); }
+  .progress span.done { background: var(--ok); border-color: var(--ok); }
+  .progress span.now { border-color: var(--accent); }
+  .feedback { margin-top: 10px; min-height: 1.4em; font-weight: 700; color: var(--ok); text-align: center; }
+
+  /* 결과 화면 */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(15, 18, 26, 0.6);
+    display: none; align-items: center; justify-content: center;
+    padding: 16px; z-index: 10;
+  }
+  .overlay.on { display: flex; animation: fade .25s ease-out; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .result-card {
+    background: var(--panel);
+    border-radius: 20px;
+    padding: 32px 28px;
+    text-align: center;
+    width: 100%; max-width: 420px;
+    box-shadow: 0 20px 50px rgba(0,0,0,.3);
+  }
+  .result-card h2 { margin: 0 0 6px; font-size: 1.4rem; }
+  .result-card .time {
+    font-size: 4.5rem; font-weight: 800; color: var(--accent);
+    font-variant-numeric: tabular-nums; line-height: 1.1; margin: 12px 0 4px;
+  }
+  .result-card .time small { font-size: 1.6rem; margin-left: 4px; }
+  .result-card .best { color: var(--muted); margin-bottom: 22px; min-height: 1.3em; }
+  .result-card .btn { font-size: 1.05rem; padding: 12px 22px; }
+  @media (max-width: 600px) {
+    .game { grid-template-columns: 1fr 1fr; }
+    .game .target { grid-column: 1 / -1; order: -1; }
+  }
+
+  @media (max-width: 600px) {
+    .result { grid-template-columns: 1fr; }
+    .big { font-size: 2rem; }
+    .bit { font-size: 1.3rem; width: 1.8rem; height: 2.2rem; }
+  }
+</style>
+</head>
+<body>
+  <h1>2진수 카드</h1>
+  <p class="sub">카드를 눌러 뒤집어 보세요. 점이 보이는 카드는 <b>1</b>, 뒷면은 <b>0</b>입니다.</p>
+
+  <div class="count-bar">
+    <button class="btn" id="removeCard">카드 빼기 −</button>
+    <div class="info" id="info"></div>
+    <button class="btn" id="addCard">카드 추가 +</button>
+  </div>
+
+  <div class="board-wrap"><div class="board" id="board"></div></div>
+
+  <div class="result">
+    <div class="box">
+      <div class="label">10진수 (앞면 카드의 합)</div>
+      <div class="big" id="dec">0</div>
+      <div class="expr" id="expr"></div>
+    </div>
+    <div class="box">
+      <div class="label">2진수 (카드 상태)</div>
+      <div class="big" id="bin"></div>
+      <div class="expr" id="places"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="allOff">모두 뒷면</button>
+    <button class="btn" id="allOn">모두 앞면</button>
+    <button class="btn primary" id="gameBtn">게임 시작 (5문제)</button>
+  </div>
+
+  <div class="game" id="game">
+    <div class="side">
+      문제
+      <b id="gProgressText">1 / 5</b>
+      <div class="progress" id="gProgress"></div>
+    </div>
+    <div class="target">
+      <div class="label">이 숫자를 만드세요</div>
+      <div class="num" id="gTarget">-</div>
+    </div>
+    <div class="side right">
+      시간
+      <b id="gTimer">0.0초</b>
+    </div>
+  </div>
+  <div class="feedback" id="feedback"></div>
+
+  <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+    <div class="result-card">
+      <h2 id="resultTitle">🎉 5문제 완료!</h2>
+      <div class="label">걸린 시간</div>
+      <div class="time" id="resultTime">0.0<small>초</small></div>
+      <div class="best" id="resultBest"></div>
+      <button class="btn primary" id="retryBtn">다시 하기</button>
+      <button class="btn" id="closeBtn">닫기</button>
+    </div>
+  </div>
+
+<script>
+  const MIN_CARDS = 1;
+  const MAX_CARDS = 10;          // 512 카드까지 (0 ~ 1023)
+  let count = 6;                 // 처음엔 32, 16, 8, 4, 2, 1
+  let state = Array(count).fill(false); // 왼쪽(큰 값)부터, false = 뒷면(0)
+
+  // 게임 상태
+  const ROUNDS = 5;
+  const game = {
+    active: false, locked: false,
+    round: 0, target: null, used: [],
+    start: 0, timerId: null, best: {}  // best[카드 수] = 최고 기록(초)
+  };
+
+  const board = document.getElementById('board');
+  let cards = [], bits = [];
+
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const sup = n => String(n).split('').map(d => SUP[d]).join('');
+  const valueAt = i => 2 ** (count - 1 - i);
+  const maxValue = () => 2 ** count - 1;
+
+  // 점 2^k개를 세로로 긴 격자(cols ≤ rows)로 배치한 SVG
+  function dotsSVG(v) {
+    const k = Math.log2(v);
+    const cols = 2 ** Math.floor(k / 2);
+    const rows = 2 ** Math.ceil(k / 2);
+    const cell = 10, r = 3.6;
+    let circles = '';
+    for (let y = 0; y < rows; y++)
+      for (let x = 0; x < cols; x++)
+        circles += `<circle cx="${x * cell + cell / 2}" cy="${y * cell + cell / 2}" r="${r}"/>`;
+    // 1, 2처럼 점이 적은 카드는 너무 커지지 않게 여백 추가
+    const pad = v <= 2 ? cell * 0.6 : 0;
+    const w = cols * cell + pad * 2, h = rows * cell + pad * 2;
+    return `<svg viewBox="${-pad} ${-pad} ${w} ${h}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${circles}</svg>`;
+  }
+
+  function buildBoard(enterIndex = -1) {
+    board.innerHTML = '';
+    cards = []; bits = [];
+    const cardW = count <= 6 ? 130 : count <= 8 ? 110 : 96;
+    board.style.gridTemplateColumns = `repeat(${count}, minmax(64px, ${cardW}px))`;
+    board.style.width = 'max-content';
+
+    for (let i = 0; i < count; i++) {
+      const v = valueAt(i);
+      const slot = document.createElement('div');
+      slot.className = 'slot' + (i === enterIndex ? ' enter' : '');
+
+      const card = document.createElement('button');
+      card.className = 'card' + (state[i] ? '' : ' off');
+      card.setAttribute('aria-label', v + '점 카드');
+      card.innerHTML = `
+        <div class="inner">
+          <div class="face front">${dotsSVG(v)}</div>
+          <div class="face back"></div>
+        </div>`;
+      card.addEventListener('click', () => {
+        if (game.locked) return;
+        state[i] = !state[i];
+        render();
+      });
+
+      const label = document.createElement('div');
+      label.className = 'value';
+      label.textContent = v;
+
+      const bit = document.createElement('div');
+      bit.className = 'bit';
+
+      slot.append(card, label, bit);
+      board.appendChild(slot);
+      cards.push(card); bits.push(bit);
+    }
+  }
+
+  function render() {
+    let sum = 0;
+    const parts = [];
+    state.forEach((on, i) => {
+      cards[i].classList.toggle('off', !on);
+      cards[i].setAttribute('aria-pressed', String(on));
+      bits[i].textContent = on ? '1' : '0';
+      bits[i].className = 'bit ' + (on ? 'one' : 'zero');
+      if (on) { sum += valueAt(i); parts.push(valueAt(i)); }
+    });
+
+    document.getElementById('info').innerHTML =
+      `카드 <b>${count}</b>장 (${count}비트) · 최대 2${sup(count)} − 1 = <b>${maxValue()}</b>`;
+    // 게임 중에는 카드 수 변경과 '모두 앞면'을 막음
+    document.getElementById('addCard').disabled = game.active || count >= MAX_CARDS;
+    document.getElementById('removeCard').disabled = game.active || count <= MIN_CARDS;
+    document.getElementById('allOn').disabled = game.active;
+    document.getElementById('gameBtn').textContent = game.active ? '게임 그만하기' : `게임 시작 (${ROUNDS}문제)`;
+
+    document.getElementById('dec').textContent = sum;
+    document.getElementById('bin').innerHTML = state.map(b => b ? 1 : 0).join('') + '<small>₂</small>';
+    document.getElementById('expr').textContent =
+      parts.length === 0 ? '모든 카드가 뒷면입니다'
+      : parts.length === 1 ? `= ${sum}`
+      : parts.join(' + ') + ' = ' + sum;
+    document.getElementById('places').textContent =
+      '왼쪽부터 ' + Array.from({ length: count }, (_, i) => '2' + sup(count - 1 - i)).join(' ') + ' 자리';
+
+    if (game.active && !game.locked && sum === game.target) onCorrect();
+  }
+
+  /* ---------- 게임 ---------- */
+  const $ = id => document.getElementById(id);
+  const elapsed = () => (performance.now() - game.start) / 1000;
+
+  function pickTarget() {
+    const max = maxValue();
+    // 범위가 충분하면 같은 숫자가 다시 나오지 않게
+    let t;
+    do { t = 1 + Math.floor(Math.random() * max); }
+    while (game.used.includes(t) && game.used.length < max);
+    game.used.push(t);
+    return t;
+  }
+
+  function showRound() {
+    game.target = pickTarget();
+    $('gTarget').textContent = game.target;
+    $('gProgressText').textContent = `${game.round + 1} / ${ROUNDS}`;
+    $('gProgress').innerHTML = Array.from({ length: ROUNDS }, (_, i) =>
+      `<span class="${i < game.round ? 'done' : i === game.round ? 'now' : ''}"></span>`).join('');
+    $('game').classList.remove('correct');
+    $('feedback').textContent = '';
+  }
+
+  function startGame() {
+    $('overlay').classList.remove('on');
+    game.active = true; game.locked = false;
+    game.round = 0; game.used = [];
+    state.fill(false);
+    $('game').classList.add('on');
+    showRound();
+    game.start = performance.now();
+    clearInterval(game.timerId);
+    game.timerId = setInterval(() => { $('gTimer').textContent = elapsed().toFixed(1) + '초'; }, 100);
+    $('gTimer').textContent = '0.0초';
+    render();
+  }
+
+  function stopGame() {
+    game.active = false; game.locked = false; game.target = null;
+    clearInterval(game.timerId);
+    $('game').classList.remove('on');
+    $('feedback').textContent = '';
+    render();
+  }
+
+  function onCorrect() {
+    game.locked = true;
+    const t = game.target;
+    $('game').classList.add('correct');
+    $('feedback').textContent = `정답! ${t} = ${t.toString(2).padStart(count, '0')}₂`;
+    game.round++;
+    $('gProgress').children[game.round - 1].className = 'done';
+
+    if (game.round >= ROUNDS) {
+      const time = elapsed();
+      clearInterval(game.timerId);
+      $('gTimer').textContent = time.toFixed(1) + '초';
+      setTimeout(() => finishGame(time), 700);
+    } else {
+      setTimeout(() => {
+        state.fill(false);
+        game.locked = false;
+        showRound();
+        render();
+      }, 800);
+    }
+  }
+
+  function finishGame(time) {
+    game.active = false; game.locked = false;
+    const prev = game.best[count];
+    const isBest = prev === undefined || time < prev;
+    if (isBest) game.best[count] = time;
+    $('resultTime').innerHTML = time.toFixed(1) + '<small>초</small>';
+    $('resultBest').textContent = isBest
+      ? (prev === undefined ? `카드 ${count}장 첫 기록!` : `🏆 최고 기록 갱신! (이전 ${prev.toFixed(1)}초)`)
+      : `카드 ${count}장 최고 기록: ${game.best[count].toFixed(1)}초`;
+    $('overlay').classList.add('on');
+    $('retryBtn').focus();
+    render();
+  }
+
+  $('retryBtn').onclick = startGame;
+  $('closeBtn').onclick = () => { $('overlay').classList.remove('on'); stopGame(); };
+  $('gameBtn').onclick = () => game.active ? stopGame() : startGame();
+
+  /* ---------- 카드 수 / 기타 버튼 ---------- */
+  $('addCard').onclick = () => {
+    if (game.active || count >= MAX_CARDS) return;
+    count++;
+    state.unshift(false);            // 왼쪽에 2배 값 카드(뒷면) 추가
+    buildBoard(0);
+    render();
+    document.querySelector('.board-wrap').scrollLeft = 0;
+  };
+  $('removeCard').onclick = () => {
+    if (game.active || count <= MIN_CARDS) return;
+    count--;
+    state.shift();                   // 가장 왼쪽 카드 제거
+    buildBoard();
+    render();
+  };
+  $('allOff').onclick = () => { if (game.locked) return; state.fill(false); render(); };
+  $('allOn').onclick = () => { if (game.active) return; state.fill(true); render(); };
+
+  buildBoard();
+  render();
+</script>
+</body>
+</html>
